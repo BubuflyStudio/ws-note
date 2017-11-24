@@ -12,6 +12,7 @@
         };
         ws.onopen = function () {
             console.log('握手成功');
+            ws.send('测试消息');
         }
     </script>
 </body>
