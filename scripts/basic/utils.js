@@ -85,10 +85,38 @@ class Utils {
 
     /**
      * websocket 数据报生成
-     * @param {Object} 
+     * @param {Object} config - 数据报配置
+     * @param {Number} config.fin - fin 码
+     * @param {Number} config.opCode - 操作码
+     * @param {String} config.payloadData - 需要发送的信息
+     * @return {Buffer} 用于发送的数据报
      */
-    static encodeDataFrame () {
-        // TODO
+    static encodeDataFrame (config) {
+        const start = [];
+        const dataBuf = new Buffer(config.payloadData);
+        const length = dataBuf.length;
+
+        // 生成数据报的第一个字节（fin 与 opCode）
+        start.push((config.fin << 7) + config.opCode);
+
+        // 依据需要发送的信息长度判断需要发送的数据报
+        if (length < 126) {
+            start.push(length);
+        } else if (length < 0x10000) {
+            start.push(126);
+            start.push((length & 0xff00) >> 8);
+            start.push(length & 0xff);
+        } else {
+            start.push(127);
+            start.push(0, 0, 0, 0);     // 一般前4字节留空
+            start.push((length & 0xff000000) >> 24);
+            start.push((length & 0xff0000) >> 16);
+            start.push((length & 0xff00) >> 8);
+            start.push(length & 0xff);
+        }
+
+        // Buffer 合并
+        return Buffer.concat([new Buffer(start), dataBuf]);
     }
 }
 
