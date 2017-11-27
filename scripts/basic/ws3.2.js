@@ -1,5 +1,5 @@
 /**
- * ws 分片发送信息
+ * ws ping pong
  *
  * @author wujohns
  * @date 17/11/24
@@ -16,20 +16,14 @@ const netServer = net.createServer((conn) => {
             // 如果没有握手则先进行握手
             conn.write(utils.handshakeFrame(data));
             hasHandshake = true;
+
+            // 握手成功后发送一条 Ping
+            conn.write(utils.encodeDataFrame({
+                fin: 1, opCode: 9, payloadData: 'pp测试'
+            }));
         } else {
             // 输出接收到的消息
             console.log(utils.decodeDataFrame(data));
-
-            // 向客户端写入消息（分片操作）
-            conn.write(utils.encodeDataFrame({
-                fin: 0, opCode: 1, payloadData: '片1'
-            }));
-            conn.write(utils.encodeDataFrame({
-                fin: 0, opCode: 0, payloadData: '-片2-'
-            }));
-            conn.write(utils.encodeDataFrame({
-                fin: 1, opCode: 0, payloadData: '片3'
-            }));
         }
     });
 });
