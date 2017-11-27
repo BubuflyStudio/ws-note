@@ -1,5 +1,5 @@
 /**
- * websocket 服务
+ * ws 握手建立连接
  *
  * @author wujohns
  * @date 17/11/24
@@ -17,7 +17,7 @@ const netServer = net.createServer((conn) => {
             conn.write(utils.handshakeFrame(data));
             hasHandshake = true;
         } else {
-            console.log(utils.decodeDataFrame(data));
+            // do nothing
         }
     });
 });

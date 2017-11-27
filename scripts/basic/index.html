@@ -11,8 +11,13 @@
             console.log(e);
         };
         ws.onopen = function () {
+            // 握手成功后发送消息
             console.log('握手成功');
             ws.send('测试消息');
+        };
+        ws.onmessage = function (msg) {
+            // 收到消息后进行输出
+            console.log(msg);
         }
     </script>
 </body>
