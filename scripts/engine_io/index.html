@@ -5,6 +5,13 @@
     <title>engine.io 测试</title>
 </head>
 <body>
-    <script type="text/javascript"></script>
+    <script type="text/javascript" src="../../node_modules/engine.io-client/engine.io.js"></script>
+    <script type="text/javascript">
+        var socket = eio('ws://127.0.0.1');
+        socket.on('open', function () {
+            socket.on('message', function (data) { console.log(data); });
+            socket.on('close', function () { console.log('close') });
+        });
+    </script>
 </body>
 </html>
