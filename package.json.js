@@ -28,7 +28,7 @@ const packageConfig = {
         'async': '^2.4.1',
 
         // 扩展依赖
-        'engine.io': ''
+        'engine.io': '^3.1.4'
     }
 };
 
