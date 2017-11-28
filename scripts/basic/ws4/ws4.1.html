@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title></title>
+</head>
+<body>
+    <script type="text/javascript">
+        var ws = new WebSocket('ws://127.0.0.1:8000');
+
+        // 握手成功
+        ws.onopen = function () { console.log('握手成功'); };
+
+        // 收到 close 帧后输出相应的 event
+        ws.onclose = function (event) { console.log(event); };
+    </script>
+</body>
+</html>

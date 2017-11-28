@@ -43,7 +43,6 @@ class Utils {
      * @static
      */
     static decodeDataFrame (data) {
-        console.log(data[1] );
         let i = 0;  // 数据帧游标
     
         // 解析前两个字节数据
@@ -76,7 +75,7 @@ class Utils {
             str = data.slice(i, i + frame.payloadLength);
         }
         str = new Buffer(str);
-        if (frame.opCode === 1) {
+        if (frame.opCode === 1 || frame.opCode === 10) {
             str = str.toString();
         }
         frame.payloadData = str;
