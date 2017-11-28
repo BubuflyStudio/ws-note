@@ -25,7 +25,10 @@ const packageConfig = {
     dependencies: {
         // 基础工具
         'lodash': '^4.17.4',
-        'async': '^2.4.1'
+        'async': '^2.4.1',
+
+        // 扩展依赖
+        'engine.io': ''
     }
 };
 

@@ -1,4 +1,22 @@
 {
     "footer": "Powered by Bubufly - Wujohns",
-    "list": []
+    "list": [
+        { "title": "概述", "path": "readme.md" },
+        {
+            "title": "websocket 协议基础",
+            "list": [
+                { "title": "调试方法说明", "path": "docs/basic/调试方法说明.md" },
+                { "title": "1.ws握手建立连接", "path": "docs/basic/1.ws握手建立连接.md" },
+                { "title": "2.ws数据报结构解析", "path": "docs/basic/2.ws数据报结构解析.md" },
+                { "title": "3.ws操作码", "path": "docs/basic/3.ws操作码.md" },
+                { "title": "4.ws断开连接", "path": "docs/basic/4.ws断开连接.md" }
+            ]
+        },
+        {
+            "title": "*补充部分",
+            "list": [
+                { "title": "plus1.js下的位操作", "path": "docs/plus1.js下的位操作.md" }
+            ]
+        }
+    ]
 }

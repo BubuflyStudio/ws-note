@@ -19,3 +19,6 @@ console.log(aa >> 7);
 // 输出：，将 1000 0001 向左偏移了1位，变为了 1 0000 0010，十进制下即为258
 const bb = 0x81;
 console.log(bb << 1);
+
+const cc = 0x8181;
+console.log(cc & 0x00ff);
