@@ -1,126 +1,70 @@
 /**
- * Module dependencies.
+ * engine.io 的入口
+ *
+ * @author wujohns
+ * @date 17/11/29
  */
+'use strict';
 
-var http = require('http');
+const http = require('http');
+const parser  = require('engine.io-parser');
+
+const Server = require('./server');
+const Transport = require('./transport');
+const transports = require('./transports');
 
 /**
- * Invoking the library as a function delegates to attach if the first argument
- * is an `http.Server`.
- *
- * If there are no arguments or the first argument is an options object, then
- * a new Server instance is returned.
- *
- * @param {http.Server} server (if specified, will be attached to by the new Server instance)
- * @param {Object} options
- * @return {Server} engine server
- * @api public
+ * 将 ws 服务 attach 到指定的 httpServer
+ * @param {http.Server} server - httpServer 对象
+ * @param {Object} options - 相关配置
+ * @return {Object} engine.io 对象
  */
-
-exports = module.exports = function () {
-  // backwards compatible use as `.attach`
-  // if first argument is an http server
-  if (arguments.length && arguments[0] instanceof http.Server) {
-    return attach.apply(this, arguments);
-  }
-
-  // if first argument is not an http server, then just make a regular eio server
-  return exports.Server.apply(null, arguments);
+const attach = (server, options) => {
+    const engine = new Server(options);
+    engine.attach(server, options);
+    return engine;
 };
 
 /**
- * Protocol revision number.
- *
- * @api public
+ * 创建 httpServer 并将 ws 服务 attach 到该 httpServer
+ * @param {Number} port - httpServer 监听的端口
+ * @param {Object} options - ws 服务的相关配置
+ * @param {Function} callback - 启动 httpServer 后的回调
+ * @return {Object} engine.io 对象
  */
+const listen = (port, options, callback) => {
+    if ('function' === typeof options) {
+        callback = options;
+        options = {};
+    }
 
-exports.protocol = 1;
+    const server = http.createServer((req, res) => {
+        res.writeHead(501);
+        res.end('Not Implemented');
+    });
 
-/**
- * Expose Server constructor.
- *
- * @api public
- */
+    const engine = attach(server, options);
+    engine.httpServer = server;
 
-exports.Server = require('./server');
-
-/**
- * Expose Socket constructor.
- *
- * @api public
- */
-
-exports.Socket = require('./socket');
-
-/**
- * Expose Transport constructor.
- *
- * @api public
- */
-
-exports.Transport = require('./transport');
-
-/**
- * Expose mutable list of available transports.
- *
- * @api public
- */
-
-exports.transports = require('./transports');
-
-/**
- * Exports parser.
- *
- * @api public
- */
-
-exports.parser = require('engine.io-parser');
-
-/**
- * Creates an http.Server exclusively used for WS upgrades.
- *
- * @param {Number} port
- * @param {Function} callback
- * @param {Object} options
- * @return {Server} websocket.io server
- * @api public
- */
-
-exports.listen = listen;
-
-function listen (port, options, fn) {
-  if ('function' === typeof options) {
-    fn = options;
-    options = {};
-  }
-
-  var server = http.createServer(function (req, res) {
-    res.writeHead(501);
-    res.end('Not Implemented');
-  });
-
-  // create engine server
-  var engine = exports.attach(server, options);
-  engine.httpServer = server;
-
-  server.listen(port, fn);
-
-  return engine;
+    server.listen(port, callback);
+    return engine;
 }
 
-/**
- * Captures upgrade requests for a http.Server.
- *
- * @param {http.Server} server
- * @param {Object} options
- * @return {Server} engine server
- * @api public
- */
+const engine = function () {
+    if (arguments.length && arguments[0] instanceof http.Server) {
+        return attach(server, options);
+    }
+    return new Server(arguments[0]);
+};
 
-exports.attach = attach;
+engine.protocol = 1;
+engine.parser = parser;
 
-function attach (server, options) {
-  var engine = new exports.Server(options);
-  engine.attach(server, options);
-  return engine;
-}
+engine.Server = Server;
+engine.Transport = Transport;
+engine.transports = transports;
+
+engine.attach = attach;
+engine.listen = listen;
+
+module.exports = engine;
