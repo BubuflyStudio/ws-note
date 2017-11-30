@@ -7,7 +7,7 @@
 'use strict';
 
 // const engine = require('engine.io');
-const engine = require('../../learn/engine_server/engine.io.js');
+const engine = require('../../learn/engine_server_build/engine.io.js');
 
 /**
  * 直接启用 listen

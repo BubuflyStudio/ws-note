@@ -1,105 +1,128 @@
+
 /**
- * 对 req 处理的结构定义
- *
- * @author wujohns
- * @date 17/11/29
+ * Module dependencies.
  */
-'use strict';
 
-const EventEmitter = require('events').EventEmitter;
-const parser = require('engine.io-parser');
-const debug = require('debug')('engine:transport');
+var EventEmitter = require('events').EventEmitter;
+var parser = require('engine.io-parser');
+var util = require('util');
+var debug = require('debug')('engine:transport');
 
-class Transport extends EventEmitter {
-    /**
-     * 构造函数
-     * @param {http.IncomingMessage} req - http 请求
-     * @constructor
-     */
-    constructor (req) {
-        super();
-        this.readyState = 'open';
-        this.discarded = false;
-        // this.req = req;
-    }
-
-    /**
-     * 标记为 “丢弃” 状态
-     */
-    discard () {
-        this.discarded = true;
-    }
-
-    /**
-     * 设定 req
-     * @param {http.IncomingMessage} req - http 请求
-     */
-    onRequest (req) {
-        debug('setting request');
-        this.req = req;
-    }
-
-    /**
-     * 关闭
-     * @param {Function} callback - 回调
-     */
-    close (callback) {
-        callback = callback || (() => {});
-        if (this.readyState === 'closed' || this.readyState === 'closing') {
-            // 如果处于已关闭或关闭中状态则不作处理
-            return;
-        }
-
-        this.readyState = 'closing';
-        this.doClose(callback);
-    }
-
-    /**
-     * 错误事件的处理
-     * @param {String} msg - 错误信息
-     * @param {Object} desc - 错误描述（附属信息，其实参数名为 meta 会更合适些）
-     */
-    onError (msg, desc) {
-        if (this.listeners('error').length) {
-            // 如果有对该 transport 对象的 error 事件的监听处理函数，则 emit 相应的 error
-            const err = new Error(msg);
-            err.type = 'TransportError';
-            err.description = desc;
-            this.emit('error', err);
-        } else {
-            debug('ignored transport error %s (%s)', msg, desc);
-        }
-    }
-
-    /**
-     * TODO 作用待确定
-     * @param {Object} packet
-     */
-    onPacket (packet) {
-        this.emit('packet', packet);
-    }
-
-    /**
-     * TODO 作用待确定
-     * @param {String} data
-     */
-    onData (data) {
-        this.onPacket(parser.decodePacket(data));
-    }
-
-    /**
-     * TODO 作用待确定
-     */
-    onClose () {
-        this.readyState = 'closed';
-        this.emit('close');
-    }
-
-    // TODO 兼容 es5 函数式类的方案，之后移除
-    static call(obj, req) {
-        obj.readyState = 'open';
-        obj.discarded = false;
-    }
-}
+/**
+ * Expose the constructor.
+ */
 
 module.exports = Transport;
+
+/**
+ * Noop function.
+ *
+ * @api private
+ */
+
+function noop () {}
+
+/**
+ * Transport constructor.
+ *
+ * @param {http.IncomingMessage} request
+ * @api public
+ */
+
+function Transport (req) {
+  this.readyState = 'open';
+  this.discarded = false;
+}
+
+/**
+ * Inherits from EventEmitter.
+ */
+
+util.inherits(Transport, EventEmitter);
+
+/**
+ * Flags the transport as discarded.
+ *
+ * @api private
+ */
+
+Transport.prototype.discard = function () {
+  this.discarded = true;
+};
+
+/**
+ * Called with an incoming HTTP request.
+ *
+ * @param {http.IncomingMessage} request
+ * @api private
+ */
+
+Transport.prototype.onRequest = function (req) {
+  debug('setting request');
+  this.req = req;
+};
+
+/**
+ * Closes the transport.
+ *
+ * @api private
+ */
+
+Transport.prototype.close = function (fn) {
+  if ('closed' === this.readyState || 'closing' === this.readyState) return;
+
+  this.readyState = 'closing';
+  this.doClose(fn || noop);
+};
+
+/**
+ * Called with a transport error.
+ *
+ * @param {String} message error
+ * @param {Object} error description
+ * @api private
+ */
+
+Transport.prototype.onError = function (msg, desc) {
+  if (this.listeners('error').length) {
+    var err = new Error(msg);
+    err.type = 'TransportError';
+    err.description = desc;
+    this.emit('error', err);
+  } else {
+    debug('ignored transport error %s (%s)', msg, desc);
+  }
+};
+
+/**
+ * Called with parsed out a packets from the data stream.
+ *
+ * @param {Object} packet
+ * @api private
+ */
+
+Transport.prototype.onPacket = function (packet) {
+  this.emit('packet', packet);
+};
+
+/**
+ * Called with the encoded packet data.
+ *
+ * @param {String} data
+ * @api private
+ */
+
+Transport.prototype.onData = function (data) {
+  this.onPacket(parser.decodePacket(data));
+};
+
+/**
+ * Called upon transport close.
+ *
+ * @api private
+ */
+
+Transport.prototype.onClose = function () {
+  this.readyState = 'closed';
+  this.emit('close');
+};

@@ -13,6 +13,10 @@ const accepts = require('accepts');
 const debug = require('debug')('engine:polling');
 
 const Transport = require('../transport');
+const compressionMethods = {
+    gzip: zlib.createGzip,
+    deflate: zlib.createDeflate
+};
 
 class Polling extends Transport {
     constructor (req) {
@@ -182,6 +186,143 @@ class Polling extends Transport {
             });
             this.write(data, { compress: compress });
         });
+    }
+
+    /**
+     * 将数据写入到 response
+     * @param {String} data - 数据
+     * @param {Object} options - 配置
+     */
+    write (data, options) {
+        debug('writing "%s"', data);
+        this.doWrite(data, options, () => {
+            this.req.cleanup();
+        });
+    }
+
+    /**
+     * @param {String} data - 数据
+     * @param {Object} options - 配置
+     * @param {Function} callback - 回调
+     */
+    doWrite (data, options, callback) {
+        const isString = typeof data === 'string';
+        const contentType = isString
+            ? 'text/plain; charset=UTF-8'
+            : 'application/octet-stream';
+        const length = isString ? Buffer.byteLength(data) : data.length;
+        const encoding = accepts(this.req).encoding(['gzip', 'deflate']);
+        const headers = {
+            'Content-Type': contentType,
+            'Content-Length': length
+        };
+
+        const response = (data) => {
+            this.res.writeHead(200, this.headers(this.req, headers));
+            this.res.end(data);
+            return callback();
+        };
+
+        if (
+            !this.httpCompression || !options.compress ||   // 设置中不需要压缩
+            length < this.httpCompression.threshold ||      // 长度小于 threshold
+            !encoding   // req 中没有压缩需要
+        ) {
+            // 直接返回 data
+            return response(data);
+        }
+
+        this.compress(data, encoding, (err, data) => {
+            // 对数据进行压缩后返回
+            if (err) {
+                res.writeHead(500);
+                res.end();
+                return callback();
+            }
+            headers['Content-Encoding'] = encoding;
+            response(data);
+        });
+    }
+
+
+    /**
+     * 压缩数据
+     * @param {String} data - 数据
+     * @param {String} encoding - 压缩方式
+     * @param {Function} callback - 回调
+     */
+    compress (data, encoding, callback) {
+        debug('compress');
+
+        const buffers = [];
+        const nread = 0;
+
+        const comStream = compressionMethods[encoding](this.httpCompression);
+        comStream.on('error', callback);
+        comStream.on('data', (chunk) => {
+            buffers.push[chunk];
+            nread += chunk.length;
+        });
+        comStream.on('end', () => callback(null, Buffer.concat(buffers, nread)));
+        comStream.end(data);
+    }
+
+    /**
+     * 关闭传输通道
+     * @param {Function} callback - 回调
+     */
+    doClose (callback) {
+        debug('closing');
+
+        if (this.dataReq) {
+            debug('aborting ongoing data request');
+            this.dataReq.destory();
+        }
+
+        let closeTimeoutTimer;
+        const onClose = () => {
+            clearTimeout(closeTimeoutTimer);
+            this.onClose();
+            return callback();
+        };
+
+        if (this.writable) {
+            debug('transport writable - closing right away');
+            this.send([{ type: 'close' }]);
+            onClose();
+        } else if (this.discarded) {
+            debug('transport discarded - closing right away');
+            onClose();
+        } else {
+            // TODO 与 shouldClose 相关的逻辑有很多可以改进的地方
+            debug('transport not writable - buffering orderly close');
+            this.shouldClose = onClose;
+            closeTimeoutTimer = setTimeout(onClose, this.closeTimeout);
+        }
+    }
+
+    /**
+     * 获取 headers
+     * @param {http.IncomingMessage} req - http 请求
+     * @param {Object} headers - 自定义 header
+     */
+    headers (req, headers) {
+        headers = headers || {};
+
+        // 防止IE的XSS报错：https://github.com/LearnBoost/socket.io/pull/1333
+        const ua = req.headers['user-agent'];
+        if (ua && (~ua.indexOf(';MSIE') || ~ua.indexOf('Trident/'))) {
+            headers['X-XSS-Protection'] = '0';
+        }
+
+        this.emit('headers', headers);
+        return headers;
+    }
+
+    // TODO 兼容 es5 函数式类的方案，之后移除
+    static call(obj, req) {
+        obj.readyState = 'open';
+        obj.discarded = false;
     }
 }
 
