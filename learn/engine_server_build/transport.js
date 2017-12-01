@@ -94,12 +94,6 @@ class Transport extends EventEmitter {
         this.readyState = 'closed';
         this.emit('close');
     }
-
-    // TODO 兼容 es5 函数式类的方案，之后移除
-    static call(obj, req) {
-        obj.readyState = 'open';
-        obj.discarded = false;
-    }
 }
 
 module.exports = Transport;

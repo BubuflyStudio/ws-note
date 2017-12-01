@@ -2,7 +2,7 @@
  * socket 逻辑处理相关
  *
  * @author wujohns
- * @date 17/11/30
+ * @date 17/12/1
  */
 'use strict';
 
@@ -19,6 +19,7 @@ class Socket extends EventEmitter {
      * @param {Object} req - requset 请求
      */
     constructor (id, server, transport, req) {
+        super();
         this.id = id;
         this.server = server;
         this.upgrading = false;
@@ -222,6 +223,9 @@ class Socket extends EventEmitter {
         const onTransportClose = () => onError('transport closed');
         const onClose = () => onError('socket closed');
 
+        transport.on('packet', onPacket);
+        transport.once('close', onTransportClose);
+        transport.once('error', onError);
         this.once('close', onClose);
     }
 
@@ -282,6 +286,8 @@ class Socket extends EventEmitter {
                 }
             }
         };
+        this.transport.on('drain', onDrain);
+        this.cleanupFn.push(() => this.transport.removeListener('drain', onDrain));
     }
 
     /**
@@ -330,7 +336,7 @@ class Socket extends EventEmitter {
                 options: options
             };
 
-            data && packet.data = data;
+            data && (packet.data = data);
             this.emit('packetCreate', packet);
             this.writeBuffer.push(packet);
             callback || this.packetsFn.push(callback);
@@ -339,7 +345,7 @@ class Socket extends EventEmitter {
     }
 
     /**
-     *
+     * 将整合好的数据通过已经建立的 transport 进行发送
      */
     flush () {
         if (
@@ -351,6 +357,7 @@ class Socket extends EventEmitter {
             this.emit('flush', this.writeBuffer);
             this.server.emit('flush', this, this.writeBuffer);
 
+            const wbuf = this.writeBuffer;
             this.writeBuffer = [];
             if (!this.transport.supportsFraming) {
                 this.sentCallbackFn.push(this.packetsFn);
@@ -358,7 +365,7 @@ class Socket extends EventEmitter {
                 this.sentCallbackFn.push(...this.packetsFn);
             }
             this.packetsFn = [];
-            this.transport.send(this.writeBuffer);
+            this.transport.send(wbuf);
             this.emit('drain');
             this.server.emit('drain', this);
         }
@@ -371,7 +378,7 @@ class Socket extends EventEmitter {
         const availableUpgrades = [];
         const allUpgrades = this.server.upgrades(this.transport.name);
         _.forEach(allUpgrades, (upg) => {
-            if (_.includes(this.server.transport, upg)) {
+            if (_.includes(this.server.transports, upg)) {
                 availableUpgrades.push(upg);
             }
         });

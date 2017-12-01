@@ -318,12 +318,6 @@ class Polling extends Transport {
         this.emit('headers', headers);
         return headers;
     }
-
-    // TODO 兼容 es5 函数式类的方案，之后移除
-    static call(obj, req) {
-        obj.readyState = 'open';
-        obj.discarded = false;
-    }
 }
 
 module.exports = Polling;
