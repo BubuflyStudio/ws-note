@@ -311,7 +311,7 @@ class Polling extends Transport {
 
         // 防止IE的XSS报错：https://github.com/LearnBoost/socket.io/pull/1333
         const ua = req.headers['user-agent'];
-        if (ua && (~ua.indexOf(';MSIE') || ~ua.indexOf('Trident/'))) {
+        if (_.includes(ua, ';MSIE') || _.includes(ua, 'Trident/')) {
             headers['X-XSS-Protection'] = '0';
         }
 

@@ -17,9 +17,80 @@ const cookieMod = require('cookie');
 const transports = require('./transports');
 const Socket = require('./socket');
 
-const sendErrorMessage = (req, res, code) => {};
-const checkInvalidHeaderChar = (val) => {};
-const abortConnetion = (socket, err) => {};
+/**
+ * 依照错误码发送错误消息
+ */
+const sendErrorMessage = (req, res, code) => {
+    const headers = { 'Content-Type': 'application/json' };
+    if (req.headers.origin) {
+        headers['Access-Control-Allow-Credentials'] = 'true';
+        headers['Access-Control-Allow-Origin'] = req.headers.origin;
+    } else {
+        headers['Access-Control-Allow-Origin'] = '*';
+    }
+
+    const message = _.get(Server.errorMessages, code);
+    if (message) {
+        res.writeHead(400, headers);
+        res.end(JSON.stringify({
+            code: code,
+            message: message
+        }));
+    } else {
+        forbiddenCode = Server.errors.FORBIDDEN;
+        res.writeHead(403, headers);
+        res.end(JSON.stringify({
+            code: forbiddenCode,
+            message: _.get(Server.errorMessages, forbiddenCode)
+        }));
+    }
+};
+
+/**
+ * 检查是否包含非法字符（这里为 v8 内部的实现逻辑）
+ */
+const checkInvalidHeaderChar = (val) => {
+    const value = _.toString(val);
+    const validHdrChars = [
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, // 0 - 15
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // 16 - 31
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 32 - 47
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 48 - 63
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 64 - 79
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 80 - 95
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 96 - 111
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, // 112 - 127
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 128 ...
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1  // ... 255
+    ];
+    const valid = _.every(value, (ele) => validHdrChars[ele.charCodeAt(0)]);
+    return !valid;
+};
+
+/**
+ * 终止连接
+ */
+const abortConnetion = (socket, err) => {
+    if (socket.writable) {
+        const message = _.get(Server.errorMessages, 'code', code || '');
+        const length = Buffer.byteLength(message);
+        socket.write(
+            'HTTP/1.1 400 Bad Request\r\n' +
+            'Connection: close\r\n' +
+            'Content-type: text/html\r\n' +
+            `Content-Length: ${ length }\r\n` +
+            '\r\n' +
+            message
+        );
+        socket.destory();
+    }
+};
 
 class Server extends EventEmitter {
     static get errors () {
@@ -96,7 +167,7 @@ class Server extends EventEmitter {
             this.ws.close();
         }
 
-        if (this.wsEngine !== 'ws' || this.wsEngine !== 'uws') {
+        if (this.wsEngine !== 'ws' && this.wsEngine !== 'uws') {
             this.wsEngine = 'ws';
         }
         const wsModule = require(this.wsEngine);
@@ -159,6 +230,7 @@ class Server extends EventEmitter {
                 debug('bad request: unexpected transport without upgrade');
                 return callback(Server.errors.BAD_REQUEST, false);
             }
+            return callback(null, true);
         } else {
             if (req.method !== 'GET') {
                 // 没有 sid 时，则只在 GET 请求中尝试握手
@@ -221,8 +293,9 @@ class Server extends EventEmitter {
         const id = base64id.generateId();   // TODO 之后替换为 uuid 生成相应的 sid
         debug('handshaking client "%s"', id);
 
+        let transport;
         try {
-            const transport = new transports[transportName](req);
+            transport = new transports[transportName](req);
             if (transportName === 'polling') {
                 // 如果使用 polling 方式
                 transport.maxHttpBufferSize = this.maxHttpBufferSize;
@@ -308,7 +381,7 @@ class Server extends EventEmitter {
         req.websocket = socket;     // TODO 考虑移除
 
         if (id) {
-            const client = this.clients[i];
+            const client = this.clients[id];
             if (!client) {
                 debug('upgrade attempt for closed client');
                 socket.close();
@@ -343,7 +416,64 @@ class Server extends EventEmitter {
      * @param {Object} options - 配置
      */
     attach (server, options) {
-        // TODO 下周制作
+        // 格式化 path
+        let path = _.get(options, 'path', '/engine.io');
+        path = _.replace(path, /\/$/, '');
+        path = `${ path }/`;
+        const destoryUpgrade = _.get(options, 'destoryUpgrade', true);
+        const destoryUpgradeTimeout = _.get(options, 'destoryUpgradeTimeout', 1000);
+        const handlePreflightRequest = _.get(options, 'handlePreflightRequest');
+
+        // 缓存并清理server的listeners
+        const listeners = server.listeners('request').slice(0);
+        server.removeAllListeners('request');
+        server.on('close', () => this.close());
+        server.on('listening', () => this.init());
+
+        const check = (req) => {
+            if (
+                req.method === 'OPTIONS' &&
+                handlePreflightRequest === false
+            ) {
+                return false;
+            }
+            return path === req.url.substr(0, path.length);
+        };
+
+        // 增加对 request 的事件处理
+        server.on('request', (req, res) => {
+            if (check(req)) {
+                debug('intercepting request for path "%s"', path);
+                if (
+                    req.method === 'OPTIONS' &&
+                    typeof handlePreflightRequest === 'function'
+                ) {
+                    handlePreflightRequest.call(server, req, res);
+                } else {
+                    this.handleRequest(req, res);
+                }
+            } else {
+                _.forEach(listeners, (listener) => {
+                    listener.call(server, req, res);
+                });
+            }
+        });
+
+        // 如果支持 websocket
+        if (_.includes(this.transports, 'websocket')) {
+            server.on('upgrade', (req, socket, head) => {
+                if (check(req)) {
+                    this.handleUpgrade(req, socket, head);
+                } else if (destoryUpgrade) {
+                    // 默认添加 upgrade 超时机制
+                    setTimeout(() => {
+                        if (socket.writable && socket.bytesWritten <= 0) {
+                            return socket.end();
+                        }
+                    }, destoryUpgradeTimeout);
+                }
+            });
+        }
     }
 }
 

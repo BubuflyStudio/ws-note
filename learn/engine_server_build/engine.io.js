@@ -9,7 +9,7 @@
 const http = require('http');
 const parser  = require('engine.io-parser');
 
-const Server = require('./server_old');
+const Server = require('./server');
 const Transport = require('./transport');
 const transports = require('./transports');
 
