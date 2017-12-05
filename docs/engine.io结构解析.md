@@ -16,3 +16,14 @@
 `set DEBUG=*,-not_this` - 输出所有调试信息  
 `set DEBUG=engine:ws` - 输出 websocket.js 中的调试信息  
 `set DEBUG=null` - 关闭调试信息
+
+## 临时记录
+在 `engine.io` 的内部内置两种长连接的解决方案，分别是：  
+`polling` - 传统轮询方式，主要针对不支持 `websocket` 的浏览器  
+`websocket` - `websocket` 方式，核心为 `ws` 或 `uws`  
+
+默认状态下，`engine.io` 会同时启动两种策略，并先用 `polling` 进行握手并在返回的数据中
+获取到可升级到的连接方式（比如`['websocket']`），判断当前连接是否需要升级。如果只考虑
+支持 `websocket` 的浏览器，则在客户端中可以设定 `transports` 为 `['websocket']`，这样
+在建立连接的时候就不需要先使用 `polling` 的方式进行握手了（会通过 `websocket` 直接握
+手建立连接）

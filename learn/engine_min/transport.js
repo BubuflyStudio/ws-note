@@ -9,7 +9,7 @@
 const _ = require('lodash');
 const EventEmitter = require('events').EventEmitter;
 const parser = require('engine.io-parser');
-const debug = require('debug')('engine:ws_trans');
+const debug = require('debug')('engine:transport');
 
 class WebsocketTrans extends EventEmitter {
     /**
@@ -30,7 +30,7 @@ class WebsocketTrans extends EventEmitter {
             this.emit('headers', headers);
         });
 
-        this.writable = null;
+        this.writable = true;
         this.perMessageDeflate = null;  // websocket 数据报的压缩配置
     }
 

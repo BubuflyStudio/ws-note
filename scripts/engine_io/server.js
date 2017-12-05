@@ -12,9 +12,13 @@ const engine = require('../../learn/engine_server_build/engine.io.js');
 /**
  * 直接启用 listen
  */
-const server = engine.listen(80);
+const server = engine.listen(80, {
+    transports: ['polling', 'websocket']
+});
 server.on('connection', (socket) => {
-    socket.send('测试');
+    socket.send('测试', {}, () => {
+        console.log('------------ after send --------------');
+    });
 });
 
 /**

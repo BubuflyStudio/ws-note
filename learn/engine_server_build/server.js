@@ -76,7 +76,7 @@ const checkInvalidHeaderChar = (val) => {
 /**
  * 终止连接
  */
-const abortConnetion = (socket, err) => {
+const abortConnetion = (socket, code) => {
     if (socket.writable) {
         const message = _.get(Server.errorMessages, 'code', code || '');
         const length = Buffer.byteLength(message);
