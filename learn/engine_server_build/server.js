@@ -318,7 +318,7 @@ class Server extends EventEmitter {
         const socket = new Socket(id, this, transport, req);
 
         if (this.cookie) {
-            // cookie 的设定（TODO 研究后可以考虑移除）
+            // 通过 ws 通道进行 cookie 设定，收到 headers 设定时 transport 会抛出 headers 事件
             transport.on('headers', (headers) => {
                 const httpOnly = this.cookiePath ? this.cookieHttpOnly : false;
                 headers['Set-Cookie'] = cookieMod.serialize(

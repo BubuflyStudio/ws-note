@@ -62,7 +62,7 @@ class Socket extends EventEmitter {
         const flush = this.flush.bind(this);
         const onDrain = () => {
             if (!_.isEmpty(this.sentCallbackFn)) {
-                // 执行 sentCallbackFn 中的第一个函数（因一系列巧合让这种方式没有出错，但仍有隐患）
+                // 执行 sentCallbackFn 中的第一个函数（TODO 因一系列巧合让这种方式没有出错，但仍有隐患）
                 const callbackFn = this.sentCallbackFn.splice(0, 1)[0];
                 debug('executing send callback');
                 callbackFn(this.transport);
@@ -233,7 +233,6 @@ class Socket extends EventEmitter {
         ) {
             debug('flushing buffer to transport');
             this.emit('flush', this.writeBuffer);
-            this.server.emit('flush', this, this.writeBuffer);
 
             // 提取当前 writeBuffer 中积压的数据并清空 writeBuffer
             const wbuf = this.writeBuffer;
@@ -246,7 +245,6 @@ class Socket extends EventEmitter {
             // 使用 transport 发送消息并抛出 drain（发送完成）事件
             this.transport.send(wbuf);
             this.emit('drain');
-            this.server.emit('drain', this);
         }
     }
 

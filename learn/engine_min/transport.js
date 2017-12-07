@@ -25,9 +25,6 @@ class WebsocketTrans extends EventEmitter {
         this.socket.once('close', () => this.onClose());
         this.socket.on('message', (data) => this.onData(data));
         this.socket.on('error', (msg, desc) => this.onError(msg, desc));
-        this.socket.on('headers', (headers) => {
-            this.emit('headers', headers);
-        });
 
         this.writable = true;
         this.perMessageDeflate = null;  // websocket 数据报的压缩配置

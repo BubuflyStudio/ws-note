@@ -1,5 +1,5 @@
 /**
- * 对 engine.io 的最小化抽取
+ * 对 engine.io 的定制化
  *
  * @author wujohns
  * @date 17/12/4
@@ -13,7 +13,6 @@ const base64id = require('base64id');
 const EventEmitter = require('events').EventEmitter;
 const debug = require('debug')('engine');
 
-const Transport = require('./transport');
 const Socket = require('./socket');
 
 /**
@@ -113,7 +112,7 @@ class Server extends EventEmitter {
     close () {
         debug('closing all open clients');
         _.forEach(this.clients, (client) => {
-            client.close(true);
+            client.close();
         });
         if (this.ws) {
             debug('closing websocket server');
@@ -239,10 +238,15 @@ class Server extends EventEmitter {
         const id = base64id.generateId();
         debug('handshaking client "%s"', id);
 
-        const transport = new Transport(req);
-        transport.perMessageDeflate = this.perMessageDeflate;
-        transport.supportsBinary = !_.get(req, '_query.b64');
-        const socket = new Socket(id, this, transport);
+        const socketConfig = {
+            id: id,
+            pingTimeout: this.pingTimeout,
+            pingInterval: this.pingInterval,
+            supportsBinary: !_.get(req, '_query.b64'),
+            perMessageDeflate: this.perMessageDeflate,
+            socket: req.websocket
+        };
+        const socket = new Socket(socketConfig);
 
         // 对 socket 的管理
         this.clients[id] = socket;

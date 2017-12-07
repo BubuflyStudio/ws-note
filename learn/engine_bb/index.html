@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>engine.io-min</title>
+</head>
+<body>
+    <script type="text/javascript" src="../../node_modules/engine.io-client/engine.io.js"></script>
+    <script type="text/javascript">
+        var socket = eio('ws://127.0.0.1', {
+            transports: ['websocket']
+        });
+        socket.on('open', function () {
+            socket.on('message', function (data) { console.log(data); });
+            socket.on('close', function () { console.log('close'); });
+            socket.send('hah');
+        });
+    </script>
+</body>
+</html>
