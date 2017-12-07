@@ -20,7 +20,6 @@ class WebsocketTrans extends EventEmitter {
     constructor (req) {
         super();
         this.readyState = 'open';
-        this.discarded = false;
 
         this.socket = req.websocket;
         this.socket.once('close', () => this.onClose());
@@ -36,7 +35,6 @@ class WebsocketTrans extends EventEmitter {
 
     get name () { return 'websocket'; }
     get handlesUpgrades () { return true; }
-    get supportsFraming () { return true; }
 
     /**
      * ws 服务被关闭时的处理（emit close）
@@ -73,14 +71,6 @@ class WebsocketTrans extends EventEmitter {
     }
 
     /**
-     * 作用未知
-     */
-    onRequest (req) {
-        debug('setting request');
-        this.req = req;
-    }
-
-    /**
      * ws 发送信息
      * @param {[Packet]} packets - 尚未编码的信息
      */
@@ -108,13 +98,6 @@ class WebsocketTrans extends EventEmitter {
                 });
             });
         });
-    }
-
-    /**
-     * 标记 transport 状态为 “丢弃”
-     */
-    discard () {
-        this.discarded = true;
     }
 
     /**

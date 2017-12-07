@@ -95,9 +95,6 @@ class Server extends EventEmitter {
         this.init();
     }
 
-    // TODO 临时添加，之后移除
-    upgrades () {return [];}
-
     /**
      * 初始化 ws 模块
      */
@@ -268,24 +265,9 @@ class Server extends EventEmitter {
         }
 
         // 将后续的连接处理交给了 socket 对象
-        const socket = new Socket(id, this, transport, req);
-
-        // TODO cookie 设定的部分需要搞清楚原因，大概率会被移除
-        if (this.cookie) {
-            transport.on('headers', (headers) => {
-                const httpOnly = this.cookiePath ? this.cookieHttpOnly : false;
-                headers['Set-Cookie'] = cookieMod.serialize(
-                    this.cookie, id,
-                    {
-                        path: this.cookiePath,
-                        httpOnly: httpOnly
-                    }
-                );
-            });
-        }
+        const socket = new Socket(id, this, transport);
 
         // 对 socket 的管理
-        transport.onRequest(req);
         this.clients[id] = socket;
         this.clientsCount++;
 

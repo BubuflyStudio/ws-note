@@ -16,8 +16,14 @@ const server = engine.listen(80, {
     transports: ['polling', 'websocket']
 });
 server.on('connection', (socket) => {
-    socket.send('测试', {}, () => {
-        console.log('------------ after send --------------');
+    socket.send('测试1', {}, () => {
+        console.log('------------ after send 1--------------');
+    });
+    socket.send('测试2', {}, () => {
+        console.log('------------ after send 2--------------');
+    });
+    socket.send('测试3', {}, () => {
+        console.log('------------ after send 3--------------');
     });
 });
 

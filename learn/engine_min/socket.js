@@ -16,17 +16,39 @@ class Socket extends EventEmitter {
      * @param {String} id - socket 编号
      * @param {Object} server - 自定义 server 对象
      * @param {Object} transport - 使用的传输对象
-     * @param {Object} req - request 请求
      */
-    constructor (id, server, transport, req) {
+    constructor (id, server, transport) {
         super();
         this.id = id;
         this.server = server;
         this.readyState = 'opening';
         this.writeBuffer = [];
         this.packetsFn = [];
+        this.sentCallbackFn = [];
+        this.cleanupFn = [];
 
-        this.setTransport(transport);
+        this.pingTimeout = server.pingTimeout;
+        this.pingInterval = server.pingInterval;
+
+        this.setTransport(transport);   // transport 的初始化
+        this.onOpen();                  // socket 对象的初始化
+    }
+
+    /**
+     * 该 socket 对象的初始化
+     */
+    onOpen () {
+        this.sendPacket('open', JSON.stringify({    // 发送服务端的配置信息
+            sid: this.id,
+            upgrades: [],
+            pingInterval: this.pingInterval,
+            pingTimeout: this.pingTimeout
+        }));
+        this.setPingTimeout();      // 设定心跳包过期时间
+
+        // 设定状态为 open，并抛出 open 事件
+        this.readyState = 'open';
+        this.emit('open');
     }
 
     /**
@@ -38,12 +60,21 @@ class Socket extends EventEmitter {
         const onPacket = this.onPacket.bind(this);
         const onClose = this.onClose.bind(this, 'transport close');
         const flush = this.flush.bind(this);
+        const onDrain = () => {
+            if (!_.isEmpty(this.sentCallbackFn)) {
+                // 执行 sentCallbackFn 中的第一个函数（因一系列巧合让这种方式没有出错，但仍有隐患）
+                const callbackFn = this.sentCallbackFn.splice(0, 1)[0];
+                debug('executing send callback');
+                callbackFn(this.transport);
+            }
+        };
 
         this.transport = transport;
         this.transport.once('error', onError);  // transport 出错时触发
         this.transport.on('packet', onPacket);  // 当 transport 收到信息时同时出发 socket 的消息处理方法
         this.transport.once('close', onClose);  // 当 transport 关闭时，同时出发 socket 的关闭
-        this.transport.on('drain', flush);  // 当 transport 发送完消息时，检查 buf 中是否有残留继续发送
+        this.transport.on('drain', flush);      // 当 transport 发送完消息时，检查 buf 中是否有残留继续发送
+        this.transport.on('drain', onDrain);    // 当 transport 发送消息完成时，执行预先设置的回调
 
         // cleanup 回调中添加对上述监听函数的处理
         this.cleanupFn.push(() => {
@@ -51,10 +82,87 @@ class Socket extends EventEmitter {
             transport.removeListener('packet', onPacket);
             transport.removeListener('close', onClose);
             transport.removeListener('drain', flush);
+            transport.removeListener('drain', onDrain);
         });
+    }
 
-        // 消息发送后的回调的统一处理
-        // TODO 有争议的地方
+    /**
+     * 设定心跳包超时计时
+     */
+    setPingTimeout () {
+        clearTimeout(this.pingTimeoutTimer);
+        this.pingTimeoutTimer = setTimeout(
+            () => this.onClose('ping timeout'),
+            this.pingInterval + this.pingTimeout
+        );
+    }
+
+    /**
+     * 收到消息时的处理
+     * @param {Object} packet - 收到的消息（已经过 transport 解码与处理）
+     */
+    onPacket (packet) {
+        if (this.readyState === 'open') {
+            debug('packet');
+            this.emit('packet', packet);
+            this.setPingTimeout();
+
+            switch (packet.type) {
+                case 'ping':
+                    debug('got ping');
+                    this.sendPacket('pong');
+                    this.emit('heartbeat');
+                    break;
+                case 'error':
+                    this.onClose('parse error');
+                    break;
+                case 'message':
+                    this.emit('data', packet.data);
+                    this.emit('message', packet.data);
+                    break;
+                default:
+                    break;
+            }
+        } else {
+            debug('packet received with closed socket');
+        }
+    }
+
+    /**
+     * 对 transport 错误的处理
+     * @param {Error} err - 错误对象
+     */
+    onError (err) {
+        debug('transport error');
+        this.onClose('transport error', err);
+    }
+
+    /**
+     * socket 关闭处理
+     * @param {String} reason - 关闭原因
+     * @param {String} description - 关闭描述
+     */
+    onClose (reason, description) {
+        if (this.readyState !== 'closed') {
+            this.readyState = 'closed';
+
+            // 清理心跳包超时计时
+            clearTimeout(this.pingTimeoutTimer);
+
+            // 重置缓存的消息以及消息回调处理
+            process.nextTick(() => this.writeBuffer = []);  // 异步置为空方便调试
+            this.packetsFn = [];
+            this.sentCallbackFn = [];
+            
+            // 执行预先设定的 cleanup
+            _.forEach(this.cleanupFn, (cleanup) => cleanup());
+            this.cleanupFn = [];
+
+            // 关闭 transport 并抛出 close 事件
+            this.transport.on('error', () => debug('error triggered by discard transport'));
+            this.transport.close();
+            this.emit('close', reason, description);
+        }
     }
 
     /**
@@ -109,7 +217,7 @@ class Socket extends EventEmitter {
 
             this.emit('packetCreate', packet);
             this.writeBuffer.push(packet);
-            callback || this.packetsFn.push(callback);
+            callback && this.packetsFn.push(callback);
             this.flush();
         }
     }
@@ -131,21 +239,34 @@ class Socket extends EventEmitter {
             const wbuf = this.writeBuffer;
             this.writeBuffer = [];
 
+            // 将积累下来的每条消息对应的发送完成回调收集到 sentCallbackFn 中
+            this.sentCallbackFn.push(...this.packetsFn);
+            this.packetsFn = [];
+
+            // 使用 transport 发送消息并抛出 drain（发送完成）事件
+            this.transport.send(wbuf);
+            this.emit('drain');
+            this.server.emit('drain', this);
         }
     }
 
-    // TOOD 后续。。。
-
     /**
-     *
+     * 关闭 socket
      */
-    onOpen () {}
+    close () {
+        if (this.readyState !== 'open') {
+            return;
+        }
+        this.readyState = 'closing';
 
-    /**
-     * 收到消息时的处理
-     * @param {Object} packet - packet
-     */
-    onPacket (packet) {}
-
-
+        const reason = 'force close';
+        if (!_.isEmpty(this.writeBuffer)) {
+            // 如果缓存中还有未发送的消息，则等待消息发送完成后再关闭 transport
+            this.once('drain', () => this.onClose(reason));
+            return;
+        }
+        this.onClose(reason);
+    }
 }
+
+module.exports = Socket;

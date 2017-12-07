@@ -12,7 +12,9 @@
             // transports: ['polling']
         });
         socket.on('open', function () {
-            socket.on('message', function (data) { console.log(data); });
+            socket.on('message', function (data) {
+                console.log(data);
+            });
             socket.on('close', function () { console.log('close') });
         });
     </script>

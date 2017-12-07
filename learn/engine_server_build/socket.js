@@ -339,7 +339,7 @@ class Socket extends EventEmitter {
             data && (packet.data = data);
             this.emit('packetCreate', packet);
             this.writeBuffer.push(packet);
-            callback || this.packetsFn.push(callback);
+            callback && this.packetsFn.push(callback);
             this.flush();
         }
     }
