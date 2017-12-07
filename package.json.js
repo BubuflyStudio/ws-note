@@ -29,6 +29,10 @@ const packageConfig = {
 
         // 扩展依赖
         'engine.io': '^3.1.4'
+    },
+
+    devDependencies: {
+        
     }
 };
 

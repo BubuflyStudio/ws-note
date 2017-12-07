@@ -306,6 +306,7 @@ class Socket extends EventEmitter {
                 return callback(err);
             }
 
+            // 执行消息发送后回调，并尝试发送下一批消息
             writeBuffer.callback && writeBuffer.callback();
             this.writable = true;
             this.flush();

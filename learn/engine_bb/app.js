@@ -18,8 +18,8 @@ engine.on('connection', (socket) => {
             console.log(`------------ after send ${ i }--------------`);
         });
     }
-    socket.on('message', () => {
-        console.log('close-------------');
-        socket.close();
-    });
+    // socket.on('message', () => {
+    //     console.log('close-------------');
+    //     socket.close();
+    // });
 });
