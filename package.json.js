@@ -32,7 +32,7 @@ const packageConfig = {
     },
 
     devDependencies: {
-        
+
     }
 };
 
