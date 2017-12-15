@@ -25,7 +25,7 @@
             "list": [
                 { "title": "1.socket.io的结构解析", "path": "docs/socket_io/1.socket.io的结构解析.md" },
                 { "title": "2.自制socket.io服务端", "path": "docs/socket_io/2.自制socket.io服务端.md" },
-                { "title": "2.自制socket.io客户端", "path": "docs/socket_io/2.自制socket.io客户端.md" }
+                { "title": "3.自制socket.io客户端", "path": "docs/socket_io/3.自制socket.io客户端.md" }
             ]
         },
         {
