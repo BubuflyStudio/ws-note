@@ -16,6 +16,9 @@
 
         // 收到消息后进行输出
         ws.onmessage = function (msg) { console.log(msg); };
+
+        console.log(ws.binaryType);
+        console.log(ws.supports);
     </script>
 </body>
 </html>

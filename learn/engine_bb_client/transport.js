@@ -49,7 +49,9 @@ class Transport extends EventEmitter {
             return this.emit('error', err);
         }
 
-        // TODO 对 binaryType 做细致处理
+        if (!this.ws.binaryType) {
+            this.supportsBinary = false;
+        }
 
         // ws 对象事件处理
         this.ws.onopen = () => {
@@ -64,8 +66,7 @@ class Transport extends EventEmitter {
         };
 
         this.ws.onmessage = (event) => {
-            // TODO binary
-            const packet = paser.decodePacket(event.data, this.socket.binaryType);
+            const packet = paser.decodePacket(event.data);
             this.emit('packet', packet);
         };
 
