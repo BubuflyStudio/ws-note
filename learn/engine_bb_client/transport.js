@@ -7,12 +7,10 @@
 'use strict';
 
 const parser = require('engine.io-parser');
-const parseqs = require('parseqs');
-const yeast = require('yeast');
+const EventEmitter = require('component-emitter');
 const debug = require('debug')('engine.io-client:transport');
-const EventEmitter = require('events').EventEmitter;
 
-const WsModule = global.WebSocket || global.MozWebSocket;
+const WsModule = window.WebSocket || window.MozWebSocket;
 
 class Transport extends EventEmitter {
     /**

@@ -28,11 +28,19 @@ const packageConfig = {
         'async': '^2.4.1',
 
         // 扩展依赖
-        'engine.io': '^3.1.4'
+        'engine.io-parser': '^2.1.1',
+        'base64id': '^1.0.0',
+        'debug': '^3.1.0',
+        'ws': '^3.3.3',
+        'uws': '^9.14.0',
+
+        // 客户端部分依赖
+        'component-emitter': '^1.2.1'
     },
 
     devDependencies: {
-
+        'gulp': '^3.9.1',
+        'webpack': '^3.10.0'
     }
 };
 
