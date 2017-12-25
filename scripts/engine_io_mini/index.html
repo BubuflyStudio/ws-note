@@ -7,7 +7,11 @@
 <body>
     <script type="text/javascript" src="./dist.js"></script>
     <script type="text/javascript">
-        
+        const socket = new eio('ws://127.0.0.1:80/engine.io/');
+        socket.on('open', () => {
+            socket.on('message', () => {});
+            socket.send('kk');
+        });
     </script>
 </body>
 </html>

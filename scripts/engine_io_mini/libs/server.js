@@ -147,7 +147,7 @@ class Server extends EventEmitter {
         // 对 websocket 的处理
         server.on('upgrade', (req, socket, head) => {
             if (check(req)) {
-                // upgrade 
+                // upgrade
                 this.handleUpgrade(req, socket, head);
             } else {
                 // 超时销毁 socket

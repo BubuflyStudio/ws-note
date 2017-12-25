@@ -13,9 +13,9 @@ const webpack = require('webpack');
 // TODO 由于 chrome 对 es6 语法支持比较好，这里不引入编译耗时的 babel
 gulp.task('build', (callback) => {
     webpack({
-        entry: path.join(__dirname, './learn/engine_bb_client/index.js'),
+        entry: path.join(__dirname, './scripts/engine_io_mini/index.js'),
         output: {
-            path: path.join(__dirname, './learn/engine_bb_client'),
+            path: path.join(__dirname, './scripts/engine_io_mini'),
             filename: 'dist.js'
         },
         devtool: 'inline-source-map'

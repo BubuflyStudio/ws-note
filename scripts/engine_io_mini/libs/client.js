@@ -6,6 +6,8 @@
  */
 'use strict';
 
+const parseuri = require('parseuri');
+const parseqs = require('parseqs');
 const parser = require('engine.io-parser');
 const EventEmitter = require('component-emitter');
 const debug = require('debug')('engine.io-client');
@@ -23,6 +25,7 @@ class Client extends EventEmitter {
         this.uri = uri;
 
         // 状态
+        this.supportsBinary = true;
         this.readyState = '';
         this.writable = false;
         this.ws = null;
@@ -48,12 +51,14 @@ class Client extends EventEmitter {
         
         // 尝试初始化 ws 对象
         try {
-            this.ws = new WsModule(uri);
+            this.ws = new WsModule(this.uri);
         } catch (err) {
             return this.emit('error', err);
         }
 
-        if (!this.ws.binaryType) {
+        const query = parseuri(this.uri).query;
+        const b64 = parseqs.decode(query).b64;
+        if (!this.ws.binaryType || b64) {
             this.supportsBinary = false;
         }
 
@@ -63,7 +68,7 @@ class Client extends EventEmitter {
             const packet = parser.decodePacket(event.data);
             this.onPacket(packet);
         };
-        this.ws.onclose = () => this.onClose();
+        this.ws.onclose = () => this.onClose('normal close');
         this.ws.onerror = (wsError) => {
             const err = new Error('websocket error');
             err.meta = wsError;
@@ -83,7 +88,7 @@ class Client extends EventEmitter {
         ) {
             debug('socket receive: type "%s", data "%s"', packet.type, packet.data);
             this.emit('packet', packet);
-            this.id && this.onHeartbeat();     // 在握手后，每次收到消息都重置一次超时
+            this.id && this.resetTimeout();     // 在握手后，每次收到消息都重置一次超时
 
             switch (packet.type) {
                 case 'open':
@@ -96,7 +101,9 @@ class Client extends EventEmitter {
                     this.emit('pong');
                     break;
                 case 'error':
-                    // TODO error 处理
+                    const err = new Error('server error');
+                    err.code = packet.data;
+                    this.onError(err);
                     break;
                 case 'message':
                     this.emit('data', packet.data);
@@ -167,7 +174,7 @@ class Client extends EventEmitter {
 
         if (typeof data === 'function') {
             callback = data;
-            data = null;
+            data = undefined;
         }
         if (typeof options === 'function') {
             callback = options;
@@ -195,7 +202,9 @@ class Client extends EventEmitter {
             this.writable && this.writeBuffer.length
         ) {
             debug('flushing %d packets in socket', this.writeBuffer.length);
-
+            this.prevBufferLen = this.writeBuffer.length;
+            this.wsSend(this.writeBuffer);
+            this.emit('flush');
         }
     }
 
@@ -203,13 +212,112 @@ class Client extends EventEmitter {
      * websocket 发送消息的封装
      * @param {Array} packets - 发送的 packets
      */
-    send (packets) {
+    wsSend (packets) {
         this.writable = false;
 
         // 发送任务创建
         const sendTasks = [];
         const length = packets.length;
-        // TODO
+        for (let i = 0; i < length; i++) {
+            const packet = packets[i];
+            const task = new Promise((resolve, reject) => {
+                parser.encodePacket(packet, this.supportsBinary, (data) => {
+                    try {
+                        this.ws.send(data);
+                    } catch (e) {
+                        debug('websocket closed before onclose event');
+                    }
+                    return resolve();
+                });
+            });
+            sendTasks.push(task);
+        }
+        Promise.all(sendTasks).then(() => {
+            this.writable = true;
+            this.writeBuffer.splice(0, this.prevBufferLen);
+            this.prevBufferLen = 0;
+
+            if (this.writeBuffer.length === 0) {
+                this.emit('drain');
+            } else {
+                this.flush();
+            }
+        });
+    }
+
+    /**
+     * 对外暴露的 send 方法
+     * @param {String} message - 发送的内容
+     * @param {Object} options - 发送配置
+     * @param {Function} callback - 回调
+     */
+    write (message, options, callback) {
+        this.sendPacket('message', message, options, callback);
+        return this;
+    }
+    send (message, options, callback) {
+        this.sendPacket('message', message, options, callback);
+        return this;
+    }
+
+    /**
+     * 关闭方法
+     * @param {String} reason - 关闭原因
+     * @param {Object} meta - 额外信息
+     */
+    onClose (reason, meta) {
+        if (
+            this.readyState === 'opening' ||
+            this.readyState === 'open' ||
+            this.readyState === 'closing'
+        ) {
+            debug('socket close with reason: "%s"', reason);
+
+            // 清理 timers
+            clearTimeout(this.pingIntervalTimer);
+            clearTimeout(this.pingTimeoutTimer);
+
+            this.ws && this.ws.close();
+            
+            this.readyState = 'closed';
+            this.id = null;
+            this.writeBuffer = [];
+            this.prevBufferLen = 0;
+
+            this.emit('close', reason, meta);
+        }
+    }
+
+    /**
+     * 错误处理相关
+     * @param {Error} err - 错误对象
+     */
+    onError (err) {
+        debug('socket error %j', err);
+        this.emit('error', err);
+        this.onClose('websocket error', err);
+    }
+
+    /**
+     * 关闭连接（手动关闭）
+     */
+    close () {
+        const close = () => {
+            this.onClose('forced close');
+        };
+
+        if (
+            this.readyState === 'opening' ||
+            this.readyState === 'open'
+        ) {
+            this.readyState = 'closing';
+            if (this.writeBuffer.length) {
+                // 如果还有未 flush 的信息，则在 flush 后发送
+                this.once('drain', () => close());
+            } else {
+                close();
+            }
+        }
     }
 }
 

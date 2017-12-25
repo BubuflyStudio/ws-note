@@ -35,7 +35,9 @@ const packageConfig = {
         'uws': '^9.14.0',
 
         // 客户端部分依赖
-        'component-emitter': '^1.2.1'
+        'component-emitter': '^1.2.1',
+        'parseqs': '^0.0.5',
+        'parseuri': '^0.0.5'
     },
 
     devDependencies: {
